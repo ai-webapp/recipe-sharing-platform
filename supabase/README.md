@@ -19,6 +19,30 @@ Se tutto va a buon fine, vedrai le tabelle **profiles** e **recipes** in **Table
 | **Trigger** | Alla registrazione di un utente viene creato automaticamente un profilo. `updated_at` su profiles si aggiorna a ogni UPDATE. |
 | **RLS** | Profili: lettura per tutti, modifica solo del proprio. Ricette: lettura per tutti, insert/update/delete solo per l’autore. |
 
+## Campo about_me in profiles
+
+Per aggiungere il campo **about_me** (presentazione alla community) alla tabella `profiles`:
+
+1. **SQL Editor** → **New query**.
+2. Copia e incolla il contenuto di **`migrations/003_profiles_about_me.sql`**.
+3. **Run**.
+
+Poi riesegui lo script **`trigger_profiles_on_register.sql`** (per includere `about_me` nel trigger di registrazione).
+
+## Trigger: profilo alla registrazione
+
+Per creare **subito** una riga in `profiles` quando un utente si registra (prima ancora che apra "Profilo" o clicchi "Salva profilo"):
+
+1. **SQL Editor** → **New query**.
+2. Copia e incolla tutto il contenuto di **`trigger_profiles_on_register.sql`**.
+3. **Run**.
+
+Dopo averlo eseguito:
+- **Alla registrazione** → il trigger crea la riga in `profiles` con `id`, `full_name` e `user_name` (presi dal form di registrazione).
+- **Salva profilo** (pagina Profilo) → continua a fare **UPDATE** su quella riga (nome e username).
+
+Se il trigger non è attivo, l’app crea comunque la riga al primo salvataggio da "Profilo" o con un upsert dopo la registrazione.
+
 ## Note
 
 - **cooking_time**: intero, tempo in **minuti** (es. 30).

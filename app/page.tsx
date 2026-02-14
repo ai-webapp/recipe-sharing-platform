@@ -1,22 +1,21 @@
-import RecipeCard from "@/components/RecipeCard";
-import { mockRecipes } from "@/lib/mock-recipes";
+import Link from "next/link";
 
 export default function Home() {
   return (
-    <div>
+    <div className="mx-auto max-w-sm">
       <h1 className="mb-2 text-2xl font-semibold text-stone-800">
-        Tutte le ricette
+        Condividi le tue ricette
       </h1>
       <p className="mb-8 text-stone-600">
-        Sfoglia le ricette condivise dalla community.
+        Accedi per creare e condividere le tue ricette con la community.
       </p>
-      <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {mockRecipes.map((recipe) => (
-          <li key={recipe.id}>
-            <RecipeCard recipe={recipe} />
-          </li>
-        ))}
-      </ul>
+
+      <Link
+        href="/login"
+        className="block w-full rounded-lg bg-stone-800 px-4 py-3 text-center font-medium text-white hover:bg-stone-700"
+      >
+        Inizia a creare le ricette
+      </Link>
     </div>
   );
 }

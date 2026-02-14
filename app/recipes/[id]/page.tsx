@@ -1,6 +1,10 @@
+import AddCommentForm from "@/components/AddCommentForm";
+import DeleteRecipeButton from "@/components/DeleteRecipeButton";
+import LikeButton from "@/components/LikeButton";
+import RecipeCommentList from "@/components/RecipeCommentList";
+import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
-import Image from "next/image";
-import { mockRecipes } from "@/lib/mock-recipes";
+import { notFound } from "next/navigation";
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("it-IT", {
@@ -10,67 +14,159 @@ function formatDate(iso: string) {
   });
 }
 
+const DIFFICULTY_LABELS: Record<string, string> = {
+  easy: "Facile",
+  medium: "Medio",
+  hard: "Difficile",
+};
+
+const CATEGORY_LABELS: Record<string, string> = {
+  antipasti: "Antipasti",
+  primi: "Primi",
+  secondi: "Secondi",
+  contorni: "Contorni",
+  dolci: "Dolci",
+  bevande: "Bevande",
+  altro: "Altro",
+};
+
+function labelDifficulty(value: string | null): string | null {
+  if (!value) return null;
+  return DIFFICULTY_LABELS[value.toLowerCase()] ?? value;
+}
+
+function labelCategory(value: string | string[] | null): string | null {
+  if (!value) return null;
+  const raw = Array.isArray(value) ? value[0] : value;
+  return CATEGORY_LABELS[raw?.toLowerCase() ?? ""] ?? raw ?? null;
+}
+
 export default async function RecipePage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const recipe = mockRecipes.find((r) => r.id === id);
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-  if (!recipe) {
-    return (
-      <div>
-        <p className="text-stone-600">Ricetta non trovata.</p>
-        <Link href="/" className="mt-4 inline-block text-stone-600 underline hover:text-stone-800">
-          Torna alle ricette
-        </Link>
-      </div>
+  const { data: recipe, error } = await supabase
+    .from("recipes")
+    .select("id, title, ingredients, instructions, cooking_time, difficulty, category, created_at, user_id")
+    .eq("id", id)
+    .single();
+
+  if (error || !recipe) {
+    notFound();
+  }
+
+  let authorName: string | null = null;
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("full_name, user_name")
+    .eq("id", recipe.user_id)
+    .single();
+  if (profile) {
+    authorName = profile.full_name || profile.user_name || null;
+  }
+
+  const categoryLabel = labelCategory(recipe.category);
+  const difficultyLabel = labelDifficulty(recipe.difficulty);
+
+  const isOwner = user?.id === recipe.user_id;
+
+  const { count: likeCount } = await supabase
+    .from("recipe_likes")
+    .select("id", { count: "exact", head: true })
+    .eq("recipe_id", id);
+
+  let userLike: { id: string } | null = null;
+  if (user?.id) {
+    const res = await supabase
+      .from("recipe_likes")
+      .select("id")
+      .eq("recipe_id", id)
+      .eq("user_id", user.id)
+      .maybeSingle();
+    userLike = res.data;
+  }
+
+  const { data: commentsRows } = await supabase
+    .from("recipe_comments")
+    .select("id, content, created_at, user_id")
+    .eq("recipe_id", id)
+    .order("created_at", { ascending: true });
+
+  const commentUserIds = [...new Set((commentsRows ?? []).map((c) => c.user_id))];
+  let commentProfileMap = new Map<string, string>();
+  if (commentUserIds.length > 0) {
+    const { data: commentProfiles } = await supabase
+      .from("profiles")
+      .select("id, full_name, user_name")
+      .in("id", commentUserIds);
+    commentProfileMap = new Map(
+      (commentProfiles ?? []).map((p) => [
+        p.id,
+        p.full_name || p.user_name || "Utente",
+      ])
     );
   }
 
+  const comments = (commentsRows ?? []).map((c) => ({
+    id: c.id,
+    content: c.content,
+    created_at: c.created_at,
+    author_name: commentProfileMap.get(c.user_id) ?? null,
+    user_id: c.user_id,
+  }));
+
   return (
     <article>
-      <Link
-        href="/"
-        className="mb-6 inline-block text-sm text-stone-600 hover:text-stone-800"
-      >
-        ← Tutte le ricette
-      </Link>
-      <div className="relative mb-6 aspect-[16/9] w-full overflow-hidden rounded-lg bg-stone-100">
-        {recipe.image_url ? (
-          <Image
-            src={recipe.image_url}
-            alt={recipe.title}
-            fill
-            className="object-cover"
-            sizes="(max-width: 1024px) 100vw, 896px"
-            priority
-          />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center text-stone-400">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 24 24"
-              strokeWidth={1}
-              stroke="currentColor"
-              className="h-16 w-16"
+      <div className="mb-6 flex flex-wrap items-center gap-3">
+        <Link
+          href="/dashboard"
+          className="text-sm text-stone-600 hover:text-stone-800"
+        >
+          ← Torna alla dashboard
+        </Link>
+        {isOwner && (
+          <>
+            <Link
+              href={`/recipes/${id}/edit`}
+              className="text-sm font-medium text-stone-600 underline hover:text-stone-800"
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z"
-              />
-            </svg>
-          </div>
+              Modifica
+            </Link>
+            <DeleteRecipeButton recipeId={id} />
+          </>
         )}
       </div>
       <h1 className="text-2xl font-semibold text-stone-800">{recipe.title}</h1>
-      <p className="mt-2 text-sm text-stone-500">
-        di {recipe.author} · {formatDate(recipe.created_at)}
-      </p>
-      <p className="mt-4 text-stone-700">{recipe.description}</p>
+      <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-stone-500">
+        {authorName && <span>di {authorName}</span>}
+        <span>{formatDate(recipe.created_at)}</span>
+        {categoryLabel && (
+          <span className="rounded bg-stone-100 px-2 py-0.5 text-stone-600">
+            {categoryLabel}
+          </span>
+        )}
+        {recipe.cooking_time != null && (
+          <span>{recipe.cooking_time} min</span>
+        )}
+        {difficultyLabel && (
+          <span>{difficultyLabel}</span>
+        )}
+        {!isOwner && (
+          <LikeButton
+            recipeId={id}
+            initialCount={likeCount ?? 0}
+            initialLiked={!!userLike}
+            userId={user?.id ?? null}
+          />
+        )}
+      </div>
       <section className="mt-6">
         <h2 className="text-lg font-medium text-stone-800">Ingredienti</h2>
         <p className="mt-2 whitespace-pre-line text-stone-700">
@@ -82,6 +178,21 @@ export default async function RecipePage({
         <p className="mt-2 whitespace-pre-line text-stone-700">
           {recipe.instructions}
         </p>
+      </section>
+
+      <section className="mt-10">
+        <h2 className="text-lg font-medium text-stone-800">Commenti</h2>
+        <div className="mt-4 space-y-4">
+          {!isOwner && (
+            <AddCommentForm key={id} recipeId={id} userId={user?.id ?? null} />
+          )}
+          <RecipeCommentList
+            comments={comments}
+            recipeId={id}
+            currentUserId={user?.id ?? null}
+            isRecipeOwner={isOwner}
+          />
+        </div>
       </section>
     </article>
   );

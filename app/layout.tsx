@@ -13,8 +13,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="it">
-      <body className="min-h-screen bg-stone-50 font-sans antialiased text-stone-800">
+    <html lang="it" suppressHydrationWarning>
+      <body className="min-h-screen bg-stone-50 font-sans antialiased text-stone-800" suppressHydrationWarning>
         <Navbar />
         <main className="mx-auto max-w-4xl px-4 py-8">{children}</main>
       </body>
