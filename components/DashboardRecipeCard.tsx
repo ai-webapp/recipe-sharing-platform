@@ -51,7 +51,7 @@ export default function DashboardRecipeCard({ recipe, showEditLink, showMineLabe
       </div>
       <div className="mt-2 flex items-center justify-between gap-2 text-xs text-stone-500">
         {showMineLabel ? (
-          <span className="font-medium text-stone-600">Mia ricetta</span>
+          <span className="rounded bg-green-200 px-2 py-0.5 font-medium text-stone-800">Mia ricetta</span>
         ) : (
           <span />
         )}
