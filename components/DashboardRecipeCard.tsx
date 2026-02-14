@@ -35,7 +35,7 @@ export default function DashboardRecipeCard({ recipe, showEditLink, showMineLabe
             {recipe.category.map((cat) => (
               <span
                 key={cat}
-                className="rounded bg-stone-100 px-2 py-0.5 text-stone-600 capitalize"
+                className="rounded bg-sky-100 px-2 py-0.5 text-sky-800 capitalize"
               >
                 {cat}
               </span>

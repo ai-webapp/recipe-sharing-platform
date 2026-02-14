@@ -148,7 +148,7 @@ export default async function RecipePage({
         {authorName && <span>di {authorName}</span>}
         <span>{formatDate(recipe.created_at)}</span>
         {categoryLabel && (
-          <span className="rounded bg-stone-100 px-2 py-0.5 text-stone-600">
+          <span className="rounded bg-sky-100 px-2 py-0.5 text-sky-800">
             {categoryLabel}
           </span>
         )}
