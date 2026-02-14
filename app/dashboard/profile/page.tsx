@@ -1,6 +1,5 @@
 import DeleteAccountButton from "@/components/DeleteAccountButton";
 import EditProfileForm from "@/components/EditProfileForm";
-import ProfileCountdownGuard from "@/components/ProfileCountdownGuard";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 
@@ -39,17 +38,15 @@ export default async function ProfilePage() {
         Aggiorna nome e nome utente. Questi dati appariranno sulle ricette che
         pubblichi.
       </p>
-      <ProfileCountdownGuard>
-        <div className="mt-6">
-          <EditProfileForm
-            userId={user.id}
-            initialFullName={profile?.full_name ?? null}
-            initialUserName={profile?.user_name ?? null}
-            initialAboutMe={profile?.about_me ?? null}
-          />
-          <DeleteAccountButton />
-        </div>
-      </ProfileCountdownGuard>
+      <div className="mt-6">
+        <EditProfileForm
+          userId={user.id}
+          initialFullName={profile?.full_name ?? null}
+          initialUserName={profile?.user_name ?? null}
+          initialAboutMe={profile?.about_me ?? null}
+        />
+        <DeleteAccountButton />
+      </div>
     </div>
   );
 }
