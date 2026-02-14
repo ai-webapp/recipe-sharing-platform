@@ -93,7 +93,7 @@ export default async function DashboardPage({
       </div>
 
       <section className="mt-8">
-        <h2 className="mb-4 text-lg font-medium text-stone-800">
+        <h2 className="mb-4 text-lg font-bold text-stone-800">
           Le ricette della community
         </h2>
         {error ? (
