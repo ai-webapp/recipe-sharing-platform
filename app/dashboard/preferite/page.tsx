@@ -1,5 +1,6 @@
 import DashboardRecipeCard from "@/components/DashboardRecipeCard";
 import { createClient } from "@/lib/supabase/server";
+import { parseImageUrls } from "@/lib/recipe-images";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
@@ -44,7 +45,7 @@ export default async function PreferitePage() {
 
   const { data: recipes } = await supabase
     .from("recipes")
-    .select("id, title, created_at, cooking_time, difficulty, category, user_id")
+    .select("id, title, created_at, cooking_time, difficulty, category, user_id, image_url")
     .in("id", recipeIds);
 
   const orderByLike = (recipes ?? []).slice().sort((a, b) => {
@@ -70,6 +71,7 @@ export default async function PreferitePage() {
     difficulty: r.difficulty ?? null,
     cooking_time: r.cooking_time ?? null,
     author_name: profileMap.get(r.user_id) ?? null,
+    image_urls: parseImageUrls(r.image_url),
   }));
 
   return (

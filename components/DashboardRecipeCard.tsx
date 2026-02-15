@@ -8,6 +8,7 @@ type DashboardRecipe = {
   difficulty: string | null;
   cooking_time: number | null;
   author_name: string | null;
+  image_urls?: string[] | null;
 };
 
 function formatDate(iso: string) {
@@ -27,6 +28,15 @@ type Props = {
 export default function DashboardRecipeCard({ recipe, showEditLink, showMineLabel }: Props) {
   const cardContent = (
     <>
+      {recipe.image_urls && recipe.image_urls.length > 0 && (
+        <div className="-mx-5 -mt-5 mb-3 overflow-hidden rounded-t-lg border-b border-stone-200">
+          <img
+            src={recipe.image_urls[0]}
+            alt=""
+            className="aspect-[4/3] w-full object-cover"
+          />
+        </div>
+      )}
       <h2 className="text-lg font-semibold text-stone-800">{recipe.title}</h2>
       <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-stone-600">
         {recipe.author_name && <span>{recipe.author_name}</span>}

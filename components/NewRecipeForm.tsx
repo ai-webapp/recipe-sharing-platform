@@ -22,6 +22,8 @@ export default function NewRecipeForm({ userId }: { userId: string }) {
   const [cookingTime, setCookingTime] = useState("");
   const [difficulty, setDifficulty] = useState("");
   const [category, setCategory] = useState("");
+  const MAX_IMAGES = 3;
+  const [imageList, setImageList] = useState<{ file: File; preview: string }[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -48,6 +50,36 @@ export default function NewRecipeForm({ userId }: { userId: string }) {
     });
   }
 
+  function handleImageChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    if (imageList.length >= MAX_IMAGES) {
+      setError(`Puoi caricare al massimo ${MAX_IMAGES} immagini.`);
+      return;
+    }
+    if (!file.type.startsWith("image/")) {
+      setError("Seleziona un file immagine (JPG, PNG, WebP o GIF).");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setError("Ogni immagine non deve superare 5 MB.");
+      return;
+    }
+    setError(null);
+    const preview = URL.createObjectURL(file);
+    setImageList((prev) => [...prev, { file, preview }]);
+  }
+
+  function removeImageAt(index: number) {
+    setImageList((prev) => {
+      const next = prev.slice();
+      URL.revokeObjectURL(next[index].preview);
+      next.splice(index, 1);
+      return next;
+    });
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
@@ -61,20 +93,42 @@ export default function NewRecipeForm({ userId }: { userId: string }) {
     }
     setLoading(true);
     const supabase = createClient();
-    const { error: err } = await supabase.from("recipes").insert({
-      user_id: userId,
-      title: title.trim(),
-      ingredients: ingredientsText,
-      instructions: instructions.trim(),
-      cooking_time: cookingTime.trim() ? parseInt(cookingTime.trim(), 10) : null,
-      difficulty: difficulty.trim() || null,
-      category: categoryForSupabase(category),
-    });
-    setLoading(false);
-    if (err) {
-      setError(err.message);
+    const { data: inserted, error: err } = await supabase
+      .from("recipes")
+      .insert({
+        user_id: userId,
+        title: title.trim(),
+        ingredients: ingredientsText,
+        instructions: instructions.trim(),
+        cooking_time: cookingTime.trim() ? parseInt(cookingTime.trim(), 10) : null,
+        difficulty: difficulty.trim() || null,
+        category: categoryForSupabase(category),
+      })
+      .select("id")
+      .single();
+    if (err || !inserted) {
+      setLoading(false);
+      setError(err?.message ?? "Errore nel salvataggio.");
       return;
     }
+    const imageUrls: string[] = [];
+    for (let i = 0; i < imageList.length; i++) {
+      const { file } = imageList[i];
+      const ext = file.name.split(".").pop() || "jpg";
+      const path = `${inserted.id}/${i + 1}.${ext}`;
+      const { error: uploadErr } = await supabase.storage
+        .from("recipe-images")
+        .upload(path, file, { upsert: true });
+      if (!uploadErr) {
+        const { data: urlData } = supabase.storage.from("recipe-images").getPublicUrl(path);
+        imageUrls.push(urlData.publicUrl);
+      }
+    }
+    if (imageUrls.length > 0) {
+      const { stringifyImageUrls } = await import("@/lib/recipe-images");
+      await supabase.from("recipes").update({ image_url: stringifyImageUrls(imageUrls) }).eq("id", inserted.id);
+    }
+    setLoading(false);
     router.push("/dashboard");
     router.refresh();
   }
@@ -114,6 +168,44 @@ export default function NewRecipeForm({ userId }: { userId: string }) {
             placeholder="Es. Pasta al pomodoro"
             className="w-full rounded-lg border border-stone-300 px-3 py-2 text-stone-800 placeholder-stone-400 focus:border-stone-500 focus:outline-none focus:ring-1 focus:ring-stone-500"
           />
+        </div>
+        <div>
+          <label className="mb-1 block text-sm font-medium text-stone-700">
+            Immagini della ricetta o del piatto (max {MAX_IMAGES})
+          </label>
+          <p className="mb-2 text-xs text-stone-500">
+            JPG, PNG, WebP o GIF. Max 5 MB ciascuna. Facoltativo.
+          </p>
+          {imageList.length < MAX_IMAGES && (
+            <input
+              id="recipe-image"
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/gif"
+              onChange={handleImageChange}
+              className="w-full rounded-lg border border-stone-300 px-3 py-2 text-sm text-stone-600 file:mr-3 file:rounded file:border-0 file:bg-stone-100 file:px-3 file:py-1.5 file:text-stone-700"
+            />
+          )}
+          {imageList.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-3">
+              {imageList.map((item, index) => (
+                <div key={item.preview} className="relative">
+                  <img
+                    src={item.preview}
+                    alt={`Anteprima ${index + 1}`}
+                    className="h-24 w-24 rounded-lg object-cover border border-stone-200"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => removeImageAt(index)}
+                    className="absolute -right-1 -top-1 rounded-full bg-stone-700 px-1.5 py-0.5 text-xs text-white hover:bg-stone-800"
+                    aria-label="Rimuovi immagine"
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
         <div>
           <label className="mb-1 block text-sm font-medium text-stone-700">

@@ -52,7 +52,8 @@ export function normalizeCategory(
 
 /**
  * Valore da inviare a Supabase (insert/update).
- * Restituisce solo un valore enum valido in minuscolo, oppure null.
+ * Restituisce solo un valore enum valido in minuscolo (antipasti, primi, ...), oppure null.
+ * In DB si salvano sempre minuscoli; le label maiuscole (Antipasti, Primi) sono solo in frontend.
  * Non inviare mai stringa vuota.
  */
 export function categoryForSupabase(

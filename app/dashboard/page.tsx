@@ -2,6 +2,7 @@ import DashboardRecipeCard from "@/components/DashboardRecipeCard";
 import DashboardSearchFilters from "@/components/DashboardSearchFilters";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { createClient } from "@/lib/supabase/server";
+import { parseImageUrls } from "@/lib/recipe-images";
 import Link from "next/link";
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
@@ -10,7 +11,7 @@ function buildRecipeQuery(
   supabase: Awaited<ReturnType<typeof createClient>>,
   filters: { q?: string; category?: string; difficulty?: string }
 ) {
-  const select = "id, title, created_at, cooking_time, difficulty, category, user_id";
+  const select = "id, title, created_at, cooking_time, difficulty, category, user_id, image_url";
   let query = supabase.from("recipes").select(select);
 
   const q = filters.q?.trim();
@@ -69,6 +70,7 @@ export default async function DashboardPage({
     cooking_time: r.cooking_time ?? null,
     author_name: profileMap.get(r.user_id) ?? null,
     user_id: r.user_id,
+    image_urls: parseImageUrls(r.image_url),
   }));
 
   return (
@@ -117,6 +119,7 @@ export default async function DashboardPage({
                     difficulty: recipe.difficulty,
                     cooking_time: recipe.cooking_time,
                     author_name: recipe.author_name,
+                    image_urls: recipe.image_urls,
                   }}
                   showMineLabel={recipe.user_id === user.id}
                 />

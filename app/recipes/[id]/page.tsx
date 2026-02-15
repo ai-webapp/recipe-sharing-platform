@@ -3,6 +3,7 @@ import DeleteRecipeButton from "@/components/DeleteRecipeButton";
 import LikeButton from "@/components/LikeButton";
 import RecipeCommentList from "@/components/RecipeCommentList";
 import { createClient } from "@/lib/supabase/server";
+import { parseImageUrls } from "@/lib/recipe-images";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
@@ -54,7 +55,7 @@ export default async function RecipePage({
 
   const { data: recipe, error } = await supabase
     .from("recipes")
-    .select("id, title, ingredients, instructions, cooking_time, difficulty, category, created_at, user_id")
+    .select("id, title, ingredients, instructions, cooking_time, difficulty, category, created_at, user_id, image_url")
     .eq("id", id)
     .single();
 
@@ -167,6 +168,22 @@ export default async function RecipePage({
           />
         )}
       </div>
+      {(() => {
+        const urls = parseImageUrls(recipe.image_url);
+        return urls.length > 0 && (
+        <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {urls.map((url, i) => (
+            <div key={i} className="overflow-hidden rounded-xl border border-stone-200 bg-stone-50">
+              <img
+                src={url}
+                alt={`${recipe.title} - immagine ${i + 1}`}
+                className="w-full aspect-[4/3] object-cover"
+              />
+            </div>
+          ))}
+        </div>
+      );
+      })()}
       <section className="mt-6">
         <h2 className="text-lg font-medium text-stone-800">Ingredienti</h2>
         <p className="mt-2 whitespace-pre-line text-stone-700">

@@ -21,7 +21,10 @@ export type RecipeForEdit = {
   cooking_time: number | null;
   difficulty: string | null;
   category: string | null;
+  image_urls?: string[] | null;
 };
+
+const MAX_IMAGES = 3;
 
 function ingredientRowsFromText(text: string): string[] {
   const trimmed = text.trim();
@@ -44,6 +47,8 @@ export default function EditRecipeForm({ recipe }: { recipe: RecipeForEdit }) {
   const [category, setCategory] = useState(
     normalizeCategory(recipe.category) ?? ""
   );
+  const [keptUrls, setKeptUrls] = useState<string[]>(recipe.image_urls ?? []);
+  const [newImageList, setNewImageList] = useState<{ file: File; preview: string }[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -70,6 +75,41 @@ export default function EditRecipeForm({ recipe }: { recipe: RecipeForEdit }) {
     });
   }
 
+  const totalImages = keptUrls.length + newImageList.length;
+
+  function handleNewImage(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    if (totalImages >= MAX_IMAGES) {
+      setError(`Puoi avere al massimo ${MAX_IMAGES} immagini.`);
+      return;
+    }
+    if (!file.type.startsWith("image/")) {
+      setError("Seleziona un file immagine (JPG, PNG, WebP o GIF).");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setError("Ogni immagine non deve superare 5 MB.");
+      return;
+    }
+    setError(null);
+    setNewImageList((prev) => [...prev, { file, preview: URL.createObjectURL(file) }]);
+  }
+
+  function removeKeptUrl(index: number) {
+    setKeptUrls((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  function removeNewImage(index: number) {
+    setNewImageList((prev) => {
+      const next = prev.slice();
+      URL.revokeObjectURL(next[index].preview);
+      next.splice(index, 1);
+      return next;
+    });
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
@@ -83,6 +123,21 @@ export default function EditRecipeForm({ recipe }: { recipe: RecipeForEdit }) {
     }
     setLoading(true);
     const supabase = createClient();
+    const uploadedUrls: string[] = [];
+    for (let i = 0; i < newImageList.length; i++) {
+      const { file } = newImageList[i];
+      const ext = file.name.split(".").pop() || "jpg";
+      const path = `${recipe.id}/${keptUrls.length + i + 1}.${ext}`;
+      const { error: uploadErr } = await supabase.storage
+        .from("recipe-images")
+        .upload(path, file, { upsert: true });
+      if (!uploadErr) {
+        const { data: urlData } = supabase.storage.from("recipe-images").getPublicUrl(path);
+        uploadedUrls.push(urlData.publicUrl);
+      }
+    }
+    const imageUrls = [...keptUrls, ...uploadedUrls].slice(0, MAX_IMAGES);
+    const { stringifyImageUrls } = await import("@/lib/recipe-images");
     const { error: err } = await supabase
       .from("recipes")
       .update({
@@ -92,6 +147,7 @@ export default function EditRecipeForm({ recipe }: { recipe: RecipeForEdit }) {
         cooking_time: cookingTime.trim() ? parseInt(cookingTime.trim(), 10) : null,
         difficulty: difficulty.trim() || null,
         category: categoryForSupabase(category),
+        image_url: stringifyImageUrls(imageUrls),
       })
       .eq("id", recipe.id);
     setLoading(false);
@@ -122,6 +178,61 @@ export default function EditRecipeForm({ recipe }: { recipe: RecipeForEdit }) {
             {error}
           </p>
         )}
+        <div>
+          <label className="mb-1 block text-sm font-medium text-stone-700">
+            Immagini della ricetta o del piatto (max 3)
+          </label>
+          <p className="mb-2 text-xs text-stone-500">
+            Sostituisci l’immagine caricando un nuovo file JPG, PNG, WebP o GIF. Max 5 MB ciascuna. Puoi tenere le attuali, rimuoverle o aggiungerne.
+          </p>
+          {(keptUrls.length > 0 || newImageList.length > 0) && (
+            <div className="mt-2 flex flex-wrap gap-3">
+              {keptUrls.map((url, index) => (
+                <div key={url} className="relative">
+                  <img
+                    src={url}
+                    alt={`Attuale ${index + 1}`}
+                    className="h-24 w-24 rounded-lg object-cover border border-stone-200"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => removeKeptUrl(index)}
+                    className="absolute -right-1 -top-1 rounded-full bg-stone-700 px-1.5 py-0.5 text-xs text-white hover:bg-stone-800"
+                    aria-label="Rimuovi immagine"
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+              {newImageList.map((item, index) => (
+                <div key={item.preview} className="relative">
+                  <img
+                    src={item.preview}
+                    alt={`Nuova ${index + 1}`}
+                    className="h-24 w-24 rounded-lg object-cover border border-stone-200"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => removeNewImage(index)}
+                    className="absolute -right-1 -top-1 rounded-full bg-stone-700 px-1.5 py-0.5 text-xs text-white hover:bg-stone-800"
+                    aria-label="Rimuovi nuova immagine"
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+          {totalImages < MAX_IMAGES && (
+            <input
+              id="recipe-image-edit"
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/gif"
+              onChange={handleNewImage}
+              className="mt-2 w-full rounded-lg border border-stone-300 px-3 py-2 text-sm text-stone-600 file:mr-3 file:rounded file:border-0 file:bg-stone-100 file:px-3 file:py-1.5 file:text-stone-700"
+            />
+          )}
+        </div>
         <div>
           <label
             htmlFor="title"

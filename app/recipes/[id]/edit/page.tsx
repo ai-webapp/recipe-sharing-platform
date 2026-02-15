@@ -2,6 +2,7 @@ import DeleteRecipeButton from "@/components/DeleteRecipeButton";
 import EditRecipeForm from "@/components/EditRecipeForm";
 import { normalizeCategory } from "@/lib/recipe-categories";
 import { createClient } from "@/lib/supabase/server";
+import { parseImageUrls } from "@/lib/recipe-images";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
@@ -21,7 +22,7 @@ export default async function EditRecipePage({
 
   const { data: recipe, error } = await supabase
     .from("recipes")
-    .select("id, title, ingredients, instructions, cooking_time, difficulty, category, user_id")
+    .select("id, title, ingredients, instructions, cooking_time, difficulty, category, user_id, image_url")
     .eq("id", id)
     .single();
 
@@ -42,6 +43,7 @@ export default async function EditRecipePage({
     cooking_time: recipe.cooking_time ?? null,
     difficulty: recipe.difficulty ?? null,
     category: categoryValue,
+    image_urls: parseImageUrls(recipe.image_url),
   };
 
   return (
